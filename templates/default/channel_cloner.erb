@@ -1,0 +1,267 @@
+#!/usr/bin/env ruby
+=begin
+   Author: Jesse Hauf
+   Organization: NativeX
+   Last Modified: 12/09/14
+   Description: Used to update Dev/Prod and backup Prod channels on a SPACEWALK server
+      This script can be ran interactively or via the command line. Use -h to see valid command line options.
+      ATTENTION! This script depends on net/ssh and net/sftp gem, to install: "gem install net-sftp --include-dependencies"
+=end
+require 'xmlrpc/client' # Required to connect to SPACEWALK RPC API
+require 'io/console' # Required by STDIN.noecho
+require 'net/ssh' # Required by timestamp method
+require 'net/sftp' # Required by timestamp method
+require 'tempfile' # Required by timestamp method
+require 'fileutils' # Required by timestamp method
+require 'time' # Required by timestamp method (parse is not included by default)
+require 'optparse' # Required to parse command line options
+
+# Variables, these must match what is displayed on the SPACEWALK server. When setting up channels below, use their label. Not their name
+@satellite_server = 'spacewalk.teamfreeze.com' # FQDN of SPACEWALK server
+@satellite_url = "http://#{@satellite_server}/rpc/api" # SPACEWALK API URL
+@satellite_timestamp_path = '/var/tmp/channel-cloner' # Path to store timestamp on satellite server, must not require sudo to r/w
+@c_master = 'centos6-x86_64' # Master base channel
+@c_prod = 'prod-clone-centos6-x86_64' # Production base channel
+@c_prod_backup = 'clone-prod-clone-centos6-x86_64' # Production backup base channel
+@c_dev = 'dev-clone-centos6-x86_64' # Development base channel
+
+# Parse command line options
+options = {:username => nil, :password => nil, :local => false, :prompt => true, :update_prod => false, :backup_prod => false}
+OptionParser.new do |opts|
+   opts.banner = 'Usage: channel_cloner.rb -u <username> -p <password> -l -q --update-prod --backup-prod'
+   opts.on('-u', '--username USERNAME', 'Satellite login') do |username|
+      options[:username] = username
+   end
+   opts.on('-p', '--password PASSWORD', 'Satellite password') do |password|
+      options[:password] = password
+   end
+   opts.on('-l', '--[no-]local', 'No SSH, only use this option when running this script on the Satellite server itself') do
+      options[:local] = true
+   end
+   opts.on('-q', '--[no-]quiet', 'Does not prompt for Prod clone/merge, or backup') do
+      options[:prompt] = false
+   end
+   opts.on('--[no-]update-prod', 'Clones/Merges Dev channel packages into Prod channel') do
+      options[:update_prod] = true
+   end
+   opts.on('--[no-]backup-prod', 'Backs up Prod channel before cloning/merging Dev packages') do
+      options[:backup_prod] = true
+   end
+   opts.on_tail('-h', '--help', 'Show this message') do
+      puts opts
+      exit
+   end
+end.parse!
+
+# If not running from command line, prompt for credentials
+if options[:username] == nil
+   print 'Satellite Login: '
+   @satellite_login = gets.chomp
+else @satellite_login = options[:username]
+end
+if options[:password] == nil
+   print 'Satellite Password: '
+   begin
+      @satellite_password = STDIN.noecho(&:gets).chomp # Hides input
+   rescue Errno::EBADF # Console does not support noecho
+      print ('Warning: Password text will be displayed: ')
+      @satellite_password = gets.chomp
+   end
+else @satellite_password = options[:password]
+end
+puts # Output blank line
+
+# Method handles logging in to the SPACEWALK server
+def login(satellite_url, satellite_login, satellite_password)
+   t = 0
+   @client = XMLRPC::Client.new2(satellite_url)
+   begin
+      @key = @client.call('auth.login', satellite_login, satellite_password, timeout=480)
+   rescue EOFError, TimeoutError, RuntimeError => ex
+      t += 1
+      if t > 3 # Give up after 3 attempts
+         puts 'Too many attempts to authenticate. Exiting.'
+         exit
+      end
+      puts "#{ex.class}, retrying authentication..."
+      retry
+   rescue XMLRPC::FaultException
+      puts 'Login failed, invalid credentials.'
+      exit
+   end
+end
+
+login(@satellite_url, @satellite_login, @satellite_password) # Initial authentication
+
+# Method handles updating a timestamp file at the remote SPACEWALK server to keep track of clone/merge operations
+def timestamp(ssh_server, ssh_username, ssh_password, file_path, file_name, local, update = false)
+   local_timestamp = Time.new # Create a timestamp with the local time
+   local_timestamp_file = Tempfile.new("#{file_name}") # Creates temp file
+   local_timestamp_file.write(local_timestamp) # Write timestamp to temp file
+   local_timestamp_file.close # Save and close temp file
+   remote_timestamp_exists = true
+   if local
+      Dir.mkdir(file_path) unless File.directory?(file_path)
+      remote_timestamp_exists = false unless File.file?("#{file_path}/#{file_name}")
+      if remote_timestamp_exists
+         file = File.open("#{file_path}/#{file_name}", 'rb')
+         remote_timestamp = file.read
+         update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return ((local_timestamp - Time.parse(remote_timestamp)) / 3600).round)
+      else
+        update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return false)
+      end
+   else
+      Net::SSH.start(ssh_server, ssh_username, :password => ssh_password) do |ssh| # Start SSH session with SPACEWALK server
+         ssh.sftp.connect do |sftp| # Open SFTP connection with SPACEWALK sever leveraging SSH tunnel
+            begin
+               sftp.lstat!(file_path).directory? # Check if directory is a directory (checking to make sure it exists)
+            rescue Net::SFTP::StatusException
+               sftp.mkdir! file_path # It doesn't exist, create it
+            end
+            begin
+               sftp.lstat!("#{file_path}/#{file_name}").file? # Check to make sure if the remote timestamp is a file (checking to make sure it exists)
+            rescue Net::SFTP::StatusException
+               remote_timestamp_exists = false # It doesn't exist
+            end
+            if remote_timestamp_exists
+               remote_timestamp = sftp.download!("#{file_path}/#{file_name}") # Gather contents of remote_timestamp file located on the SPACEWALK server into as string
+               update ? sftp.upload!(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return ((local_timestamp - Time.parse(remote_timestamp)) / 3600).round)
+            else
+               # Upload temp file to replace/update remote timestamp file
+               update ? sftp.upload!(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return false) # Returns false if an update is not performed
+            end
+         end
+      end
+   end
+   local_timestamp_file.unlink # Destroy temp file
+end
+
+# Compare local timestamp to remote timestamp
+hour_difference = timestamp(@satellite_server, @satellite_login, @satellite_password, @satellite_timestamp_path, 'timestamp', options[:local])
+if hour_difference
+   day_difference = (hour_difference / 24).round # Divide hours by 24 and round it to find days
+   puts "This script updated the Prod channel #{day_difference} day(s) ago."
+else
+   puts 'Warning: Could not reliably determine the last time this script updated the Prod channel.'
+end
+
+# Method handles yes or no questions
+def yes_or_no(question)
+   loop do
+      print "#{question}\nyes(y), no(n), quit(q): "
+      $stdout.flush # Clear buffer
+      response = gets.chomp
+      case response.downcase
+         when 'y', 'yes' then return true
+         when 'n', 'no' then return false
+         when 'q', 'quit' then exit
+         else $stderr.puts "Please answer \"yes\", \"no\", or \"quit\"."
+      end
+   end
+end
+
+# Prompt user with whether or no they want to update and backup the Prod channel
+update_prod = options[:update_prod]
+backup_prod = options[:backup_prod]
+if options[:prompt]
+   puts 'This script will update the Dev channel with the latest packages by default.'
+   update_prod = yes_or_no('Would you also like to Merge/Clone the current packages in the Dev channel to Prod?')
+   update_prod ? backup_prod = yes_or_no('Would you also like to backup the current state of the Prod channel?') : nil
+end
+
+# Update remote timestamp file only if we are modifying the Prod channel
+update_prod ? timestamp(@satellite_server, @satellite_login, @satellite_password, @satellite_timestamp_path, 'timestamp', options[:local], true) : nil
+
+# Method handles exceptions in the channel clone process
+$t = 0
+def channel_clone_ex_handler(ex_class)
+   $t += 1
+   if $t > 20 # Give up after 20 attempts
+      puts 'Too many tries. Exiting.'
+      exit
+   end
+   puts "Warning: #{ex_class} re-authenticating...(#{$t})"
+   @client.call('auth.logout', @key) # Log out
+   sleep(10) # Sleep to reduce risk of RuntimeError
+   login(@satellite_url, @satellite_login, @satellite_password) # Log back in
+   puts 'Retrying previous action'
+end
+
+# Method handles the channel merge/clone process
+Parameters = Struct.new(:name, :label, :summary, :parent_label)
+def channel_clone(source, destination, child_prefix)
+   begin
+      puts "Merging base channel: #{source} to #{destination}"
+      @client.call('channel.software.mergePackages', @key, source, destination) # Merge base channel packages
+      @client.call('channel.software.mergeErrata', @key, source, destination) # Merge base channel errata
+   rescue EOFError, TimeoutError, XMLRPC::FaultException, RuntimeError => ex
+      channel_clone_ex_handler(ex.class)
+      retry
+   end
+   begin
+      master_children = @client.call('channel.software.listChildren', @key, source) # Retrieves all child channels of the master channel
+   rescue EOFError, TimeoutError, XMLRPC::FaultException, RuntimeError => ex
+      channel_clone_ex_handler(ex.class)
+      retry
+   end
+   master_children.each { |child|
+      if child['label'].include? '--' # If the channel label includes -- then we need to split it to keep the channel labels clean
+         label_split = child['label'].split('--', 2) # Split existing label into array using -- as a delimiter and a max of two strings
+         label = label_split[1] # Take the right most string
+      else label = child['label']
+      end
+      child_clone_name = "#{child_prefix.downcase}--#{label}"
+      exists = nil
+      begin
+         @client.call('channel.software.getDetails', @key, child_clone_name) # Query channel to see if it exists
+      rescue EOFError, TimeoutError, RuntimeError => ex
+         channel_clone_ex_handler(ex.class)
+         retry # Some other error occurred. Retry.
+      rescue XMLRPC::FaultException
+         exists = false # Channel does not exist
+      else
+         exists = true # Channel exists
+      end
+      if exists # Check to see if the channel-to-be exists. If it does, lets merge the packages rather then clone the channel
+         begin
+            puts "Merging: #{child['name']}"
+            @client.call('channel.software.mergePackages', @key, child['label'], child_clone_name)
+            @client.call('channel.software.mergeErrata', @key, child['label'], child_clone_name)
+         rescue EOFError, TimeoutError, XMLRPC::FaultException, RuntimeError => ex
+            channel_clone_ex_handler(ex.class)
+            retry # Retry from begin
+         end
+      else # If the channel-to-be does not exist, lets clone it into existence
+         if child['name'].include? ' -- ' # If the channel name includes -- then we need to split it
+            name_split = child['name'].split(' -- ', 2) # Split existing name into array using -- as a delimiter and a max of two strings
+            name = name_split[1] # Take the right most string
+         else name = child['name']
+         end
+         cloning_parameters = Parameters.new("#{child_prefix} -- #{name}", child_clone_name, "#{child['name']}", destination)
+         begin
+            puts "Cloning: #{child['name']}"
+            @client.call('channel.software.clone', @key, child['label'], cloning_parameters, false)
+         rescue EOFError, TimeoutError, RuntimeError => ex1
+            channel_clone_ex_handler(ex1.class)
+            retry
+         rescue XMLRPC::FaultException # Channel must already exist, try to merge instead
+            begin
+               @client.call('channel.software.mergePackages', @key, child['label'], child_clone_name)
+               @client.call('channel.software.mergeErrata', @key, child['label'], child_clone_name)
+            rescue EOFError, TimeoutError, XMLRPC::FaultException, RuntimeError => ex2
+               channel_clone_ex_handler(ex2.class)
+               retry
+            end
+         end
+      end
+   }
+end
+
+# Call channel_clone method
+backup_prod ? channel_clone(@c_prod, @c_prod_backup, 'Prod-Backup') : nil
+update_prod ? channel_clone(@c_dev, @c_prod, 'Prod') : nil
+channel_clone(@c_master, @c_dev, 'Dev')
+
+# Log out of SPACEWALK
+@client.call('auth.logout', @key)
+__END__
