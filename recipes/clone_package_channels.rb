@@ -26,5 +26,3 @@ cron 'clone_package_channels' do
   hour '2'
   minute '0'
 end
-
-__END__
