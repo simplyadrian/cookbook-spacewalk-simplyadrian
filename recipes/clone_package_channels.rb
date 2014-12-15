@@ -22,9 +22,7 @@ cron 'clone_package_channels' do
   action :create
   command "/usr/local/bin/channel_cloner.rb -u #{creds['satellite_username']} -p #{creds['satellite_password']} -l -q#{update_prod}#{backup_prod}"
   day '15-21'
-  weekday :tuesday
+  weekday '6'
   hour '2'
   minute '0'
 end
-
-__END__
