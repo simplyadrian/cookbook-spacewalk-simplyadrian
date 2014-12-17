@@ -1,4 +1,4 @@
-spacewalkclient-nativex Cookbook
+spacewalk-nativex Cookbook
 ================================
 TODO: Enter the cookbook description here.
 
@@ -11,14 +11,14 @@ TODO: List your cookbook requirements. Be sure to include any requirements this 
 
 e.g.
 #### packages
-- `toaster` - spacewalkclient-nativex needs toaster to brown your bagel.
+- `toaster` - spacewalk-nativex needs toaster to brown your bagel.
 
 Attributes
 ----------
 TODO: List your cookbook attributes here.
 
 e.g.
-#### spacewalkclient-nativex::default
+#### spacewalk-nativex::default
 <table>
   <tr>
     <th>Key</th>
@@ -27,7 +27,7 @@ e.g.
     <th>Default</th>
   </tr>
   <tr>
-    <td><tt>['spacewalkclient-nativex']['bacon']</tt></td>
+    <td><tt>['spacewalk-nativex']['bacon']</tt></td>
     <td>Boolean</td>
     <td>whether to include bacon</td>
     <td><tt>true</tt></td>
@@ -36,17 +36,17 @@ e.g.
 
 Usage
 -----
-#### spacewalkclient-nativex::default
+#### spacewalk-nativex::default
 TODO: Write usage instructions for each cookbook.
 
 e.g.
-Just include `spacewalkclient-nativex` in your node's `run_list`:
+Just include `spacewalk-nativex` in your node's `run_list`:
 
 ```json
 {
   "name":"my_node",
   "run_list": [
-    "recipe[spacewalkclient-nativex]"
+    "recipe[spacewalk-nativex]"
   ]
 }
 ```
