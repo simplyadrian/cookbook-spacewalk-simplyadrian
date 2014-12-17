@@ -2,7 +2,6 @@
 =begin
    Author: Jesse Hauf
    Organization: NativeX
-   Last Modified: 12/09/14
    Description: Used to update Dev/Prod and backup Prod channels on a SPACEWALK server
       This script can be ran interactively or via the command line. Use -h to see valid command line options.
       ATTENTION! This script depends on net/ssh and net/sftp gem, to install: "gem install net-sftp --include-dependencies"
@@ -26,7 +25,7 @@ require 'optparse' # Required to parse command line options
 @c_dev = 'dev-clone-centos6-x86_64' # Development base channel
 
 # Parse command line options
-options = {:username => nil, :password => nil, :local => false, :prompt => true, :update_prod => false, :backup_prod => false}
+options = {:username => nil, :password => nil, :local => false, :prompt => true, :excludes => nil, :update_prod => false, :backup_prod => false}
 OptionParser.new do |opts|
    opts.banner = 'Usage: channel_cloner.rb -u <username> -p <password> -l -q --update-prod --backup-prod'
    opts.on('-u', '--username USERNAME', 'Satellite login') do |username|
@@ -40,6 +39,9 @@ OptionParser.new do |opts|
    end
    opts.on('-q', '--[no-]quiet', 'Does not prompt for Prod clone/merge, or backup') do
       options[:prompt] = false
+   end
+   opts.on('-e', '--excludes x,y,z', Array, 'Excludes cloning packages for channel IDs specified, use "," to separate channels, exclude the dev-- or prod-- prefix') do |excludes|
+      options[:excludes] = excludes
    end
    opts.on('--[no-]update-prod', 'Clones/Merges Dev channel packages into Prod channel') do
       options[:update_prod] = true
@@ -108,7 +110,7 @@ def timestamp(ssh_server, ssh_username, ssh_password, file_path, file_name, loca
          remote_timestamp = file.read
          update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return ((local_timestamp - Time.parse(remote_timestamp)) / 3600).round)
       else
-        update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return false)
+         update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return false)
       end
    else
       Net::SSH.start(ssh_server, ssh_username, :password => ssh_password) do |ssh| # Start SSH session with SPACEWALK server
@@ -189,7 +191,7 @@ end
 
 # Method handles the channel merge/clone process
 Parameters = Struct.new(:name, :label, :summary, :parent_label)
-def channel_clone(source, destination, child_prefix)
+def channel_clone(source, destination, child_prefix, excludes)
    begin
       puts "Merging base channel: #{source} to #{destination}"
       @client.call('channel.software.mergePackages', @key, source, destination) # Merge base channel packages
@@ -210,6 +212,8 @@ def channel_clone(source, destination, child_prefix)
          label = label_split[1] # Take the right most string
       else label = child['label']
       end
+      puts "Skipping: #{child['name']}" if excludes.include? label
+      next if excludes.include? label # Skip cloning child channel if it has been excluded
       child_clone_name = "#{child_prefix.downcase}--#{label}"
       exists = nil
       begin
@@ -258,10 +262,9 @@ def channel_clone(source, destination, child_prefix)
 end
 
 # Call channel_clone method
-backup_prod ? channel_clone(@c_prod, @c_prod_backup, 'Prod-Backup') : nil
-update_prod ? channel_clone(@c_dev, @c_prod, 'Prod') : nil
-channel_clone(@c_master, @c_dev, 'Dev')
+backup_prod ? channel_clone(@c_prod, @c_prod_backup, 'Prod-Backup', options[:excludes]) : nil
+update_prod ? channel_clone(@c_dev, @c_prod, 'Prod', options[:excludes]) : nil
+channel_clone(@c_master, @c_dev, 'Dev', options[:excludes])
 
 # Log out of SPACEWALK
 @client.call('auth.logout', @key)
-__END__

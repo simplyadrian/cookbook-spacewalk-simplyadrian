@@ -3,6 +3,10 @@ spacewalk-nativex CHANGELOG
 
 This file is used to list changes made in each version of the spacewalk-nativex cookbook.
 
+0.3.0
+-----
+- [Jesse Hauf] - Added "excludes" attribute to exclude cloning specified channels
+
 0.2.0
 -----
 - [Jesse Hauf] - Changed name of cookbook to spacewalk-nativex. Added support for Spacewalk server.
