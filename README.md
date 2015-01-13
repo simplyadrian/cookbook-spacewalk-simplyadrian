@@ -1,23 +1,34 @@
 spacewalk-nativex Cookbook
 ================================
-TODO: Enter the cookbook description here.
+This cookbook is used to install, configure, and register the SpaceWalk client on a node.
 
-e.g.
-This cookbook makes your favorite breakfast sandwich.
+It is also used to configure SpaceWalk server.
+
 
 Requirements
 ------------
-TODO: List your cookbook requirements. Be sure to include any requirements this cookbook has on platforms, libraries, other cookbooks, packages, operating systems, etc.
+This cookbook depends on the cron community cookbook.
+Depends on the epel yum repository. You can add "include_recipe 'yum-nativex'" to your role to achieve this.
 
-e.g.
-#### packages
-- `toaster` - spacewalk-nativex needs toaster to brown your bagel.
+Recipes
+-------
+#### default.rb
+Calls spacewalk-nativex::clientinstall and spacewalk-nativex::registerclient
+
+#### clientinstall.rb
+Installs the spacealk client.
+
+#### registerclient.rb
+Runs bash script to register the node with SpaceWalk server using the appropriate activation key (configurable in a
+node attribute.
+
+#### clone_package_channels.rb
+Copies the channel_cloner.erb template to the node and schedules it using cron. The channel_cloner ruby script
+is designed to update the package channels on a SpaceWalk satellite server when given the appropriate
+input (via attributes).
 
 Attributes
 ----------
-TODO: List your cookbook attributes here.
-
-e.g.
 #### spacewalk-nativex::default
 <table>
   <tr>
@@ -27,20 +38,39 @@ e.g.
     <th>Default</th>
   </tr>
   <tr>
-    <td><tt>['spacewalk-nativex']['bacon']</tt></td>
+    <td><tt>['spacewalk-nativex']['update_prod']</tt></td>
     <td>Boolean</td>
-    <td>whether to include bacon</td>
+    <td>Used when configuring SpaceWalk server. If set to true, Clones/Merges Dev channel packages into Prod
+      channel</td>
     <td><tt>true</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['spacewalk-nativex']['backup_prod']</tt></td>
+    <td>Boolean</td>
+    <td>Used when configuring SpaceWalk server. If set to true, backs up Prod channel before cloning/merging Dev
+      packages</td>
+    <td><tt>true</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['spacewalk-nativex']['activation_key']</tt></td>
+    <td>String</td>
+    <td>Used when configuring SpaceWalk server. Channel activation key specifies which channel the client should be
+      registered with</td>
+    <td><tt>'1-centos6'</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['spacewalk-nativex']['excludes']</tt></td>
+    <td>String</td>
+    <td>Used when configuring SpaceWalk server. Excludes cloning packages for channel IDs specified, use "," to
+      separate channels, exclude the dev-- or prod-- prefix</td>
+    <td><tt>'dsc-centos,dse-centos'</tt></td>
   </tr>
 </table>
 
 Usage
 -----
 #### spacewalk-nativex::default
-TODO: Write usage instructions for each cookbook.
-
-e.g.
-Just include `spacewalk-nativex` in your node's `run_list`:
+Just include `spacewalk-nativex` in your node's role or `run_list`:
 
 ```json
 {
@@ -51,18 +81,6 @@ Just include `spacewalk-nativex` in your node's `run_list`:
 }
 ```
 
-Contributing
-------------
-TODO: (optional) If this is a public cookbook, detail the process for contributing. If this is a private cookbook, remove this section.
-
-e.g.
-1. Fork the repository on Github
-2. Create a named feature branch (like `add_component_x`)
-3. Write your change
-4. Write tests for your change (if applicable)
-5. Run the tests, ensuring they all pass
-6. Submit a Pull Request using Github
-
 License and Authors
 -------------------
-Authors: TODO: List authors
+Authors: Adrian Herrera, Jesse Hauf
