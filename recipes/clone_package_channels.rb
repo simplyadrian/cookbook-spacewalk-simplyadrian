@@ -7,10 +7,21 @@
 # All rights reserved - Do Not Redistribute
 #
 
+gems = %w{
+  net-ssh
+  net-sftp
+}
+
+gems.each do |gem|
+  gem_package gem do
+    action :install
+  end
+end
+
 template '/usr/local/bin/channel_cloner.rb' do
   action :create
   source 'channel_cloner.erb'
-  mode '0644'
+  mode '0755'
 end
 
 creds = Chef::EncryptedDataBagItem.load('credentials', 'spacewalk-server')

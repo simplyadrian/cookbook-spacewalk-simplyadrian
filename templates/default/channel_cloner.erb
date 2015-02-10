@@ -6,14 +6,20 @@
       This script can be ran interactively or via the command line. Use -h to see valid command line options.
       ATTENTION! This script depends on net/ssh and net/sftp gem, to install: "gem install net-sftp --include-dependencies"
 =end
+require 'rubygems'
 require 'xmlrpc/client' # Required to connect to SPACEWALK RPC API
-require 'io/console' # Required by STDIN.noecho
 require 'net/ssh' # Required by timestamp method
 require 'net/sftp' # Required by timestamp method
 require 'tempfile' # Required by timestamp method
 require 'fileutils' # Required by timestamp method
 require 'time' # Required by timestamp method (parse is not included by default)
 require 'optparse' # Required to parse command line options
+begin
+   require 'io/console' # Required by STDIN.noecho
+   io_console = true
+rescue LoadError
+   io_console = false
+end
 
 # Variables, these must match what is displayed on the SPACEWALK server. When setting up channels below, use their label. Not their name
 @satellite_server = 'spacewalk.teamfreeze.com' # FQDN of SPACEWALK server
@@ -25,7 +31,8 @@ require 'optparse' # Required to parse command line options
 @c_dev = 'dev-clone-centos6-x86_64' # Development base channel
 
 # Parse command line options
-options = {:username => nil, :password => nil, :local => false, :prompt => true, :excludes => nil, :update_prod => false, :backup_prod => false}
+options = {:username => nil, :password => nil, :local => false, :prompt => true, :excludes => nil,
+           :update_prod => false, :backup_prod => false}
 OptionParser.new do |opts|
    opts.banner = 'Usage: channel_cloner.rb -u <username> -p <password> -l -q --update-prod --backup-prod'
    opts.on('-u', '--username USERNAME', 'Satellite login') do |username|
@@ -64,6 +71,7 @@ end
 if options[:password] == nil
    print 'Satellite Password: '
    begin
+      raise Errno::EBADF unless io_console
       @satellite_password = STDIN.noecho(&:gets).chomp # Hides input
    rescue Errno::EBADF # Console does not support noecho
       print ('Warning: Password text will be displayed: ')
@@ -101,6 +109,7 @@ def timestamp(ssh_server, ssh_username, ssh_password, file_path, file_name, loca
    local_timestamp_file = Tempfile.new("#{file_name}") # Creates temp file
    local_timestamp_file.write(local_timestamp) # Write timestamp to temp file
    local_timestamp_file.close # Save and close temp file
+   File.chmod(0644, local_timestamp_file) # Make it readable by everyone
    remote_timestamp_exists = true
    if local
       Dir.mkdir(file_path) unless File.directory?(file_path)
@@ -108,9 +117,9 @@ def timestamp(ssh_server, ssh_username, ssh_password, file_path, file_name, loca
       if remote_timestamp_exists
          file = File.open("#{file_path}/#{file_name}", 'rb')
          remote_timestamp = file.read
-         update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return ((local_timestamp - Time.parse(remote_timestamp)) / 3600).round)
+         update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}", options = {:preserve => true}) : (return ((local_timestamp - Time.parse(remote_timestamp)) / 3600).round)
       else
-         update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}") : (return false)
+         update ? FileUtils.cp(local_timestamp_file.path, "#{file_path}/#{file_name}", options = {:preserve => true}) : (return false)
       end
    else
       Net::SSH.start(ssh_server, ssh_username, :password => ssh_password) do |ssh| # Start SSH session with SPACEWALK server
