@@ -25,6 +25,7 @@ template '/usr/local/bin/channel_cloner.rb' do
 end
 
 creds = Chef::EncryptedDataBagItem.load('credentials', 'spacewalk-server')
+email = node['spacewalk-nativex']['email']
 excludes = node['spacewalk-nativex']['excludes']
 node['spacewalk-nativex']['update_prod'] ? update_prod = ' --update-prod' : update_prod = ''
 node['spacewalk-nativex']['backup_prod'] ? backup_prod = ' --backup-prod' : backup_prod = ''
@@ -32,9 +33,9 @@ node['spacewalk-nativex']['backup_prod'] ? backup_prod = ' --backup-prod' : back
 # Run channel update on the 3rd Tuesday of every month
 cron 'clone_package_channels' do
   action :create
-  command "/usr/local/bin/channel_cloner.rb -u #{creds['satellite_username']} -p \"#{creds['satellite_password']}\" -l -q -e #{excludes}#{update_prod}#{backup_prod}"
+  command "/usr/local/bin/channel_cloner.rb -u #{creds['satellite_username']} -p \"#{creds['satellite_password']}\" -l -q -e #{email} -x #{excludes}#{update_prod}#{backup_prod}"
   day '15-21'
-  weekday '6'
+  weekday '1'
   hour '2'
   minute '0'
 end
