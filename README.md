@@ -65,6 +65,12 @@ Attributes
       separate channels, exclude the dev-- or prod-- prefix</td>
     <td><tt>'dsc-centos,dse-centos'</tt></td>
   </tr>
+  <tr>
+    <td><tt>['spacewalk-nativex']['email']</tt></td>
+    <td>String</td>
+    <td>Email address to send channel cloner script results to</td>
+    <td><tt>''</tt></td>
+  </tr>
 </table>
 
 Usage
