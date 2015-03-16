@@ -5,6 +5,10 @@ This file is used to list changes made in each version of the spacewalk-nativex 
 
 0.5.0
 -----
+- [Jesse Hauf] - Fixed syntax bug in cron command
+
+0.5.0
+-----
 - [Jesse Hauf] - Changed cron command to check if it is Monday
 
 0.4.0
