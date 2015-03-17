@@ -3,6 +3,10 @@ spacewalk-nativex CHANGELOG
 
 This file is used to list changes made in each version of the spacewalk-nativex cookbook.
 
+0.5.1
+-----
+- [Jesse Hauf] - Fixed syntax bug in cron command
+
 0.5.0
 -----
 - [Jesse Hauf] - Changed cron command to check if it is Monday
