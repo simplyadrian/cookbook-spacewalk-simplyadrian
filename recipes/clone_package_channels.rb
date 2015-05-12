@@ -1,8 +1,8 @@
 #
-# Cookbook Name:: spacewalk-nativex
+# Cookbook Name:: spacewalk-simplyadrian
 # Recipe:: clone_package_channels
 #
-# Copyright 2014, NativeX
+# Copyright 2014, simplyadrian
 #
 # All rights reserved - Do Not Redistribute
 #
@@ -25,10 +25,10 @@ template '/usr/local/bin/channel_cloner.rb' do
 end
 
 creds = Chef::EncryptedDataBagItem.load('credentials', 'spacewalk-server')
-email = node['spacewalk-nativex']['email']
-excludes = node['spacewalk-nativex']['excludes']
-node['spacewalk-nativex']['update_prod'] ? update_prod = ' --update-prod' : update_prod = ''
-node['spacewalk-nativex']['backup_prod'] ? backup_prod = ' --backup-prod' : backup_prod = ''
+email = node['spacewalk-simplyadrian']['email']
+excludes = node['spacewalk-simplyadrian']['excludes']
+node['spacewalk-simplyadrian']['update_prod'] ? update_prod = ' --update-prod' : update_prod = ''
+node['spacewalk-simplyadrian']['backup_prod'] ? backup_prod = ' --backup-prod' : backup_prod = ''
 
 # Run channel update on the 3rd Tuesday of every month
 cron 'clone_package_channels' do

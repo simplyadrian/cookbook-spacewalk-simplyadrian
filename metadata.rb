@@ -1,8 +1,8 @@
-name             'spacewalk-nativex'
-maintainer       'NativeX'
-maintainer_email 'jesse.hauf@nativex.com'
+name             'spacewalk-simplyadrian'
+maintainer       'simplyadrian'
+maintainer_email 'simplyadrian@gmail.com'
 license          'All rights reserved'
-description      'Installs/Configures spacewalk-nativex'
+description      'Installs/Configures spacewalk-simplyadrian'
 long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
 version          '0.5.1'
 

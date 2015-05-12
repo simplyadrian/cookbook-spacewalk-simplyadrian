@@ -1,11 +1,11 @@
 #
-# Cookbook Name:: spacewalk-nativex
+# Cookbook Name:: spacewalk-simplyadrian
 # Recipe:: default
 #
-# Copyright 2014, NativeX
+# Copyright 2014, simplyadrian
 #
 # All rights reserved - Do Not Redistribute
 #
 
-include_recipe "spacewalk-nativex::clientinstall"
-include_recipe "spacewalk-nativex::registerclient"
+include_recipe "spacewalk-simplyadrian::clientinstall"
+include_recipe "spacewalk-simplyadrian::registerclient"

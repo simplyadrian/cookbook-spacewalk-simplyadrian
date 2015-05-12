@@ -1,7 +1,7 @@
-spacewalk-nativex CHANGELOG
+spacewalk-simplyadrian CHANGELOG
 =================================
 
-This file is used to list changes made in each version of the spacewalk-nativex cookbook.
+This file is used to list changes made in each version of the spacewalk-simplyadrian cookbook.
 
 0.5.1
 -----
@@ -24,11 +24,11 @@ This file is used to list changes made in each version of the spacewalk-nativex 
 
 0.2.0
 -----
-- [Jesse Hauf] - Changed name of cookbook to spacewalk-nativex. Added support for Spacewalk server.
+- [Jesse Hauf] - Changed name of cookbook to spacewalk-simplyadrian. Added support for Spacewalk server.
 
 0.1.0
 -----
-- [Adrian Herrera] - Initial release of spacewalkclient-nativex
+- [Adrian Herrera] - Initial release of spacewalkclient-simplyadrian
 
 - - -
 Check the [Markdown Syntax Guide](http://daringfireball.net/projects/markdown/syntax) for help with Markdown.

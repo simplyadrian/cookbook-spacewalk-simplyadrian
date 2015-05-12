@@ -1,13 +1,13 @@
 #
-# Cookbook Name:: spacewalk-nativex
+# Cookbook Name:: spacewalk-simplyadrian
 # Recipe:: registerclient 
 #
-# Copyright 2014, NativeX
+# Copyright 2014, simplyadrian
 #
 # All rights reserved - Do Not Redistribute
 #
 
-activation_key = node['spacewalk-nativex']['activation_key']
+activation_key = node['spacewalk-simplyadrian']['activation_key']
 
 bash 'register_client' do
   code <<-EOH

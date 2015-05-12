@@ -1,8 +1,8 @@
 #
-# Cookbook Name:: spacewalk-nativex
+# Cookbook Name:: spacewalk-simplyadrian
 # Recipe:: clientinstall
 #
-# Copyright 2014, NativeX
+# Copyright 2014, simplyadrian
 #
 # All rights reserved - Do Not Redistribute
 #
